@@ -123,4 +123,4 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 ## Contact
 
-For any questions or suggestions, please open an issue on GitHub or contact the project maintainer.
+For any questions or suggestions, please open an issue on GitHub.
