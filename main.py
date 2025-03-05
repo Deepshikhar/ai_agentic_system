@@ -7,7 +7,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.tools import tool
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langgraph.prebuilt import create_react_agent
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import HumanMessage, HumanMessage
 from langchain_community.agent_toolkits import FileManagementToolkit
 from pprint import pprint
 from tavily import TavilyClient
@@ -70,7 +70,7 @@ def extractor(query: Annotated[str, "The query to search and extract detailed re
 
     # return extracted_content
     return {
-            "messages": [AIMessage(content="Detailed content extracted and saved.", name="extractor")],
+            "messages": [HumanMessage(content="Detailed content extracted and saved.", name="extractor")],
             "extracted_data": extracted_content,
             "needs_search": False,
         }
@@ -87,7 +87,7 @@ class AgentState(MessagesState):
     next: str
 
 # Agent roles
-members = ["llm","researcher", "extractor", "answer_drafter", "file_writer"]
+members = ["assistant","researcher", "extractor", "answer_drafter", "file_writer"]
 options = members + ["FINISH"]
 
 system_prompt = (
@@ -113,15 +113,15 @@ def supervisor_node(state: AgentState) -> AgentState:
     return {"next": next_ if next_ != "FINISH" else END}
 
 # llm agent
-llm_agent = create_react_agent(llm, 
+assistant_agent = create_react_agent(llm, 
                                tools=[llm_tool], 
                                state_modifier="You are a highly-trained research analyst and can provide the user with the information they need. You are tasked with finding the answer to the user's question without using any tools. Answer the user's question to the best of your ability."
 )
-def llm_node(state: AgentState) -> AgentState:
-    result = llm_agent.invoke(state)
+def assistant_node(state: AgentState) -> AgentState:
+    result = assistant_agent.invoke(state)
     return {
         "messages": [
-            AIMessage(content=result["messages"][-1].content, name="llm_node")
+            HumanMessage(content=result["messages"][-1].content, name="assistant")
         ]
     }
 
@@ -129,31 +129,31 @@ def llm_node(state: AgentState) -> AgentState:
 research_agent = create_react_agent(llm, tools=[research_tool], state_modifier="You are a researcher. Use Tavily to gather online data and when done return the result with status")
 def research_node(state: AgentState) -> AgentState:
     result = research_agent.invoke(state)
-    return {"messages": [AIMessage(content=result["messages"][-1].content, name="researcher")], "urls": result.get("urls", [])}
+    return {"messages": [HumanMessage(content=result["messages"][-1].content, name="researcher")], "urls": result.get("urls", [])}
 
 # Extractor agent
 extractor_agent = create_react_agent(llm, tools=[extractor], state_modifier="You are an extractor. Use Tavily's Extract API to extract content from URLs and return the result and status.")
 def extractor_node(state: AgentState) -> AgentState:
     result = extractor_agent.invoke(state)
-    return {"messages": [AIMessage(content=result["messages"][-1].content, name="extractor")], "needs_search": False}
+    return {"messages": [HumanMessage(content=result["messages"][-1].content, name="extractor")], "needs_search": False}
 
 # Answer drafter agent
 answer_drafter_agent = create_react_agent(llm, tools=[], state_modifier="You are an highly professional answer drafter which Summarize and structure research data and respond with status.")
 def answer_drafter_node(state: AgentState) -> AgentState:
     result = answer_drafter_agent.invoke(state)
-    return {"messages": [AIMessage(content=result["messages"][-1].content, name="answer_drafter")], "needs_search": False}
+    return {"messages": [HumanMessage(content=result["messages"][-1].content, name="answer_drafter")], "needs_search": False}
 
 # File writer agent
 file_agent = create_react_agent(llm, tools=[write_tool], state_modifier="You are file writer who can manage files  and return the status")
 def file_node(state: AgentState) -> AgentState:
     result = file_agent.invoke(state)
-    return {"messages": [AIMessage(content=result["messages"][-1].content, name="file_writer")], "needs_search": False}
+    return {"messages": [HumanMessage(content=result["messages"][-1].content, name="file_writer")], "needs_search": False}
 
 # Build graph
 builder = StateGraph(AgentState)
 builder.add_node("supervisor", supervisor_node)
 builder.add_edge(START, "supervisor")
-builder.add_node("llm", llm_node)
+builder.add_node("assistant", assistant_node)
 builder.add_node("researcher", research_node)
 builder.add_node("extractor", extractor_node)
 builder.add_node("answer_drafter", answer_drafter_node)
