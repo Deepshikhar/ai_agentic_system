@@ -15,7 +15,6 @@ from langgraph.store.memory import InMemoryStore
 load_dotenv()
 max_tokens = 2000
 
-
 # Initialize OpenAI LLM
 llm = ChatOpenAI(
     api_key=os.environ.get("OPENAI_API_KEY"), 
